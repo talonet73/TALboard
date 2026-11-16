@@ -11,11 +11,8 @@ a.btn{display:block;width:100%;max-width:340px;padding:16px;border-radius:16px;f
 </style></head><body>
 <img src="icons/logo-256.png" alt=""><h1>Invia a Calendario iPhone</h1>
 <div id="list"></div>
-<a class="btn pri" id="add" href="#">📅 Aggiungi al Calendario</a>
-<p>Se non si apre da solo, tocca il pulsante qui sopra e poi <b>Aggiungi</b>. Il Calendario ti avviserà 1 ora e 10 minuti prima della scadenza.</p>
-<a class="btn sec" id="done" href="#">✓ Fatto · torna all'Agenda</a>
-<p id="hint" style="display:none">Se la pagina resta aperta tocca <b>Fine</b> (o la ✕) in alto per tornare a TALboard.</p>
-<a class="btn sec" id="alt" href="#" style="opacity:.7;font-size:15px;padding:12px">Non si apre? Metodo 2 (scarica il file)</a>
+<a class="btn pri" id="add" href="#">📅 Apri nel Calendario</a>
+<p>Nella schermata del Calendario tocca <b>Aggiungi</b>.<br>Poi torna all'app con <b>◀ TALboard</b> in alto a sinistra.</p>
 <script>
 const b64 = location.hash.slice(1);
 let ics = '';
@@ -30,8 +27,7 @@ let m1 = function(){ location.href = dataUrl; };
 function m2(){ const blob = new Blob([ics], {type:'text/calendar'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'TALboard.ics'; document.body.appendChild(a); a.click(); a.remove(); }
 document.getElementById('add').onclick = e => { e.preventDefault(); m1(); };
 // chiude la finestra e riporta a TALboard
-function back(){ try { window.close(); } catch(e){} setTimeout(() => { document.getElementById('hint').style.display = 'block'; }, 400); }
-document.getElementById('done').onclick = e => { e.preventDefault(); back(); };
+function back(){ try { window.close(); } catch(e){}  }
 // quando la scheda del Calendario si chiude (Aggiungi o Annulla), torno da solo all'app
 let opened = false, away = false;
 const m1orig = m1; m1 = () => { opened = true; m1orig(); };
@@ -39,7 +35,6 @@ const left = () => { if (opened) away = true; };
 const returned = () => { if (opened && away) setTimeout(back, 350); };
 window.addEventListener('blur', left); window.addEventListener('focus', returned);
 document.addEventListener('visibilitychange', () => document.hidden ? left() : returned());
-document.getElementById('alt').onclick = e => { e.preventDefault(); m2(); };
 const mode = new URLSearchParams(location.search).get('m');
 if (mode === 'blob'){ document.getElementById('add').onclick = e => { e.preventDefault(); m2(); }; setTimeout(m2, 500); }
 else if (ics) setTimeout(m1, 500);

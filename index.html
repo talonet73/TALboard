@@ -256,7 +256,7 @@ input[type=range]{width:100%;accent-color:var(--ott2)}
 
 <script>
 /* ============ TALboard v1.0 — tutti i dati restano SOLO su questo dispositivo ============ */
-const VERSION = '1.6.1';
+const VERSION = '1.6.2';
 const KEY = 'talboard-data';
 const PALETTE = [
   {c:'#0E7C86',n:'Ottanio'},{c:'#7A1F35',n:'Bordeaux'},{c:'#C8962E',n:'Ocra'},{c:'#C77DFF',n:'Lilla'},
@@ -280,7 +280,8 @@ try { S = JSON.parse(localStorage.getItem(KEY)) || seed(); } catch(e){ S = seed(
 const GREEN = '#22C55E';
 S.categories.forEach(c => { if (c.color === '#2F8F5B') c.color = '#C77DFF'; });
 S.recordings = S.recordings || []; S.alerted = S.alerted || {};
-S.settings = Object.assign({lastBackup:null,pin:null,inAppAlerts:true,calMode:'shortcut',scName:'TALboard Calendario'}, S.settings||{});
+S.settings = Object.assign({lastBackup:null,pin:null,inAppAlerts:true,calMode:'ics',scName:'TALboard Calendario'}, S.settings||{});
+if (S.settings.calMode === 'shortcut' && !S.settings.scConfirmed) S.settings.calMode = 'ics';
 const save = () => localStorage.setItem(KEY, JSON.stringify(S));
 save();
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
@@ -814,7 +815,7 @@ function renderSettings(){
     <div class="note">Per avvisi garantiti anche ad app chiusa usa "📅 INVIA A CALENDARIO IPHONE": si apre Safari con l'evento pronto, tocchi "Aggiungi" e il Calendario ti avvisa 1 ora e 10 minuti prima della scadenza.</div>
 
     <h2 class="sec"><span>Invio al Calendario iPhone</span></h2>
-    <div class="setrow"><div class="grow"><b>Metodo</b><small>${S.settings.calMode==='shortcut'?'Comando Rapido (diretto, consigliato)':'Pagina Safari (.ics)'}</small></div><button class="btn sm" id="sCalMode">Cambia</button></div>
+    <div class="setrow"><div class="grow"><b>Metodo</b><small>${S.settings.calMode==='shortcut'?'Comando Rapido (richiede il comando configurato)':'Scheda Calendario via Safari'}</small></div><button class="btn sm" id="sCalMode">Cambia</button></div>
     ${S.settings.calMode==='shortcut'?`<label class="f">Nome del Comando Rapido</label><input class="in" id="sScName" value="${esc(S.settings.scName)}" autocapitalize="none" autocorrect="off"><div class="note">Deve essere identico al nome del comando nell'app Comandi.</div>`:''}
 
     <div class="btns"><button class="btn" id="sLab">🧪 Test Calendario</button></div>
@@ -834,7 +835,7 @@ function renderSettings(){
   $('#sPerm').onclick = async () => { if (!('Notification' in window)) return toast('Notifiche non disponibili: installa TALboard sulla schermata Home'); const p = await Notification.requestPermission(); toast('Notifiche: ' + p); render(); };
   $('#sCalAll').onclick = () => { const f = S.items.filter(x => { const d = parseDue(x.due); return (x.repeat && x.repeat!=='none') || (d && d > new Date() && !x.completed); }); if (!f.length) return toast('Nessuna scadenza futura'); addToCalendar(f); };
   $('#sLab').onclick = openLab;
-  $('#sCalMode').onclick = () => { S.settings.calMode = S.settings.calMode === 'shortcut' ? 'ics' : 'shortcut'; save(); render(); };
+  $('#sCalMode').onclick = () => { S.settings.calMode = S.settings.calMode === 'shortcut' ? 'ics' : 'shortcut'; S.settings.scConfirmed = S.settings.calMode === 'shortcut'; save(); render(); };
   const scn = $('#sScName'); if (scn) scn.onchange = () => { S.settings.scName = scn.value.trim() || 'TALboard Calendario'; save(); toast('Salvato'); };
   $('#sPin').onclick = () => S.settings.pin ? confirmSheet('Rimuovere il PIN?', () => { S.settings.pin = null; save(); render(); }) : setPin();
   $('#sWipe').onclick = () => confirmSheet('Cancellare TUTTO? Fai prima un backup.', () => confirmSheet('Sei sicuro? Non si torna indietro.', () => { S = seed(); save(); render(); toast('Dati cancellati'); }));
@@ -907,8 +908,7 @@ function addToCalendar(items, labMethod){
   const url = new URL('cal.html', location.href).href + '#' + b64;
   const standalone = window.navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
   // finestra che si apre sopra TALboard: mostra la scheda del Calendario e poi si richiude
-  const w = window.open(url, '_blank');
-  if (!w) location.href = standalone ? 'x-safari-' + url : url;
+  location.href = standalone ? 'x-safari-' + url : url;   // la scheda "Aggiungi evento" iOS la mostra solo Safari
 }
 /* ---------- laboratorio: test dei metodi verso il Calendario ---------- */
 function labSend(m, ics, b64){
