@@ -256,7 +256,7 @@ input[type=range]{width:100%;accent-color:var(--ott2)}
 
 <script>
 /* ============ TALboard v1.0 — tutti i dati restano SOLO su questo dispositivo ============ */
-const VERSION = '1.6';
+const VERSION = '1.6.1';
 const KEY = 'talboard-data';
 const PALETTE = [
   {c:'#0E7C86',n:'Ottanio'},{c:'#7A1F35',n:'Bordeaux'},{c:'#C8962E',n:'Ocra'},{c:'#C77DFF',n:'Lilla'},
@@ -817,6 +817,8 @@ function renderSettings(){
     <div class="setrow"><div class="grow"><b>Metodo</b><small>${S.settings.calMode==='shortcut'?'Comando Rapido (diretto, consigliato)':'Pagina Safari (.ics)'}</small></div><button class="btn sm" id="sCalMode">Cambia</button></div>
     ${S.settings.calMode==='shortcut'?`<label class="f">Nome del Comando Rapido</label><input class="in" id="sScName" value="${esc(S.settings.scName)}" autocapitalize="none" autocorrect="off"><div class="note">Deve essere identico al nome del comando nell'app Comandi.</div>`:''}
 
+    <div class="btns"><button class="btn" id="sLab">🧪 Test Calendario</button></div>
+
     <h2 class="sec"><span>Privacy</span></h2>
     <div class="setrow"><div class="grow"><b>Blocco con PIN</b><small>${S.settings.pin?'Attivo':'Non attivo'}</small></div><button class="btn sm" id="sPin">${S.settings.pin?'Rimuovi':'Imposta'}</button></div>
     <div class="note">Tutto ciò che scrivi resta solo su questo iPhone. Su GitHub c'è solo il codice dell'app, nessun dato tuo. Nessun server, nessun account.</div>
@@ -831,6 +833,7 @@ function renderSettings(){
   $('#sAl').onclick = () => { S.settings.inAppAlerts = !S.settings.inAppAlerts; save(); render(); };
   $('#sPerm').onclick = async () => { if (!('Notification' in window)) return toast('Notifiche non disponibili: installa TALboard sulla schermata Home'); const p = await Notification.requestPermission(); toast('Notifiche: ' + p); render(); };
   $('#sCalAll').onclick = () => { const f = S.items.filter(x => { const d = parseDue(x.due); return (x.repeat && x.repeat!=='none') || (d && d > new Date() && !x.completed); }); if (!f.length) return toast('Nessuna scadenza futura'); addToCalendar(f); };
+  $('#sLab').onclick = openLab;
   $('#sCalMode').onclick = () => { S.settings.calMode = S.settings.calMode === 'shortcut' ? 'ics' : 'shortcut'; save(); render(); };
   const scn = $('#sScName'); if (scn) scn.onchange = () => { S.settings.scName = scn.value.trim() || 'TALboard Calendario'; save(); toast('Salvato'); };
   $('#sPin').onclick = () => S.settings.pin ? confirmSheet('Rimuovere il PIN?', () => { S.settings.pin = null; save(); render(); }) : setPin();
@@ -880,8 +883,8 @@ function sendToShortcut(items){
   if (!eventi.length) return toast('Nessuna data da inviare');
   location.href = 'shortcuts://run-shortcut?name=' + encodeURIComponent(S.settings.scName || 'TALboard Calendario') + '&input=text&text=' + encodeURIComponent(JSON.stringify({eventi}));
 }
-function addToCalendar(items){
-  if (S.settings.calMode === 'shortcut') return sendToShortcut(items);
+function addToCalendar(items, labMethod){
+  if (!labMethod && S.settings.calMode === 'shortcut') return sendToShortcut(items);
   const st = new Date().toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
   const FREQ = {daily:'DAILY', weekly:'WEEKLY', monthly:'MONTHLY', yearly:'YEARLY'};
   const trig = m => m < 0 ? `-PT${-m}M` : `PT${m}M`;
@@ -900,12 +903,32 @@ function addToCalendar(items){
   if (!ev.length) return toast('Nessuna data da esportare');
   const ics = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//TALboard//IT','CALSCALE:GREGORIAN', ...ev, 'END:VCALENDAR'].join('\r\n');
   const b64 = btoa(String.fromCharCode(...new TextEncoder().encode(ics))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  if (labMethod) return labSend(labMethod, ics, b64);
   const url = new URL('cal.html', location.href).href + '#' + b64;
   const standalone = window.navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
   // finestra che si apre sopra TALboard: mostra la scheda del Calendario e poi si richiude
   const w = window.open(url, '_blank');
   if (!w) location.href = standalone ? 'x-safari-' + url : url;
 }
+/* ---------- laboratorio: test dei metodi verso il Calendario ---------- */
+function labSend(m, ics, b64){
+  const base = new URL('cal.html', location.href).href;
+  if (m === 'B') return window.open(base + '?m=blob#' + b64, '_blank');
+  if (m === 'C') return location.href = URL.createObjectURL(new Blob([ics], {type:'text/calendar'}));
+  if (m === 'D'){ const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([ics], {type:'text/calendar'})); a.download = 'TEST-D.ics'; document.body.appendChild(a); a.click(); a.remove(); return; }
+  if (m === 'E') return location.href = 'x-safari-' + base + '?m=data#' + b64;
+}
+function openLab(){
+  const t = addDays(new Date(), 1); t.setHours(12,0,0,0);
+  const mk = k => ({id:'lab'+k, title:'TEST-'+k+' TALboard', due: ymd(t)+'T'+hm(t), catId:(S.categories[0]||{}).id, tags:[], desc:'Evento di prova metodo '+k});
+  openSheet(`<h3>🧪 Test Calendario (una volta sola)</h3>
+    <div class="note">Tocca i 4 pulsanti uno alla volta. Ognuno prova a creare nel Calendario un evento <b>"TEST-B/C/D/E TALboard"</b> per domani alle 12:00. Se compare la schermata del Calendario tocca <b>Aggiungi</b>; poi torna qui (con Fine, ✕ o ◀ TALboard in alto a sinistra). Alla fine apri il Calendario e dimmi quali TEST ci sono.</div>
+    ${['B','C','D','E'].map(k => `<div class="btns"><button class="btn ${k==='E'?'':'pri'}" data-lab="${k}">Prova ${k}</button></div>`).join('')}
+    <div class="note">B = finestra sopra l'app · C e D = file dentro l'app · E = Safari</div>`, sh => {
+    sh.querySelectorAll('[data-lab]').forEach(b => b.onclick = () => addToCalendar([mk(b.dataset.lab)], b.dataset.lab));
+  });
+}
+
 /* ---------- alerts (solo con app aperta) ---------- */
 async function notify(title, body){
   toast('⏰ ' + title + ' — ' + body); beep();

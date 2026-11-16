@@ -40,5 +40,7 @@ const returned = () => { if (opened && away) setTimeout(back, 350); };
 window.addEventListener('blur', left); window.addEventListener('focus', returned);
 document.addEventListener('visibilitychange', () => document.hidden ? left() : returned());
 document.getElementById('alt').onclick = e => { e.preventDefault(); m2(); };
-if (ics) setTimeout(m1, 500);
+const mode = new URLSearchParams(location.search).get('m');
+if (mode === 'blob'){ document.getElementById('add').onclick = e => { e.preventDefault(); m2(); }; setTimeout(m2, 500); }
+else if (ics) setTimeout(m1, 500);
 </script></body></html>
