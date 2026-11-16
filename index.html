@@ -150,7 +150,8 @@ label.f{display:block;font-size:13px;font-weight:700;color:var(--mut);margin:12p
 .in{width:100%;background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:12px;padding:11px 12px;font-size:17px;outline:none}
 .in:focus{border-color:var(--ott2)}
 textarea.in{min-height:70px;resize:vertical}
-.row2{display:flex;gap:8px}.row2>*{flex:1}
+.row2{display:flex;gap:8px}.row2>*{flex:1;min-width:0}
+.in[type=date],.in[type=time]{-webkit-appearance:none;appearance:none;display:block;min-width:0;max-width:100%;min-height:50px;text-align:left}
 input[type=range]{width:100%;accent-color:var(--ott2)}
 .pct{display:flex;align-items:center;gap:10px}.pct b{width:48px;text-align:right}
 .catpick{display:flex;flex-wrap:wrap;gap:7px}
@@ -255,7 +256,7 @@ input[type=range]{width:100%;accent-color:var(--ott2)}
 
 <script>
 /* ============ TALboard v1.0 — tutti i dati restano SOLO su questo dispositivo ============ */
-const VERSION = '1.3';
+const VERSION = '1.4';
 const KEY = 'talboard-data';
 const PALETTE = [
   {c:'#0E7C86',n:'Ottanio'},{c:'#7A1F35',n:'Bordeaux'},{c:'#C8962E',n:'Ocra'},{c:'#C77DFF',n:'Lilla'},
@@ -507,7 +508,7 @@ function openForm(o, preset){
     <label class="f">Note</label><textarea class="in" id="fN" placeholder="Appunti">${esc(it.notes)}</textarea>
     ${it.audioId?`<label class="f">Nota audio</label><div id="fAudio"><button class="btn sm" id="fPlay">▶ Ascolta registrazione</button></div>`:''}
     <div class="btns"><button class="btn pri" id="fSave">Salva</button></div>
-    <div class="btns"><button class="btn ocra" id="fCal">📅 Avvisi nel Calendario iPhone</button></div>
+    <div class="btns"><button class="btn ocra" id="fCal">📅 INVIA A CALENDARIO IPHONE</button></div>
     ${!isNew?`<div class="btns"><button class="btn" id="fDup">Duplica</button><button class="btn danger" id="fDel">Elimina</button></div>`:''}
   `, sh => {
     const q = id => sh.querySelector('#'+id);
@@ -620,7 +621,7 @@ function reportActions(){
   const mids = [...new Set(occs.map(o => o._m || o.id))], anyRec = occs.some(o => o._m);
   openSheet(`<h3>Cosa vuoi fare con ${n} attività?</h3>
     <div class="btns"><button class="btn pri" id="raE">✎ Modifica</button><button class="btn danger" id="raD">🗑 Elimina</button></div>
-    <div class="btns"><button class="btn ocra" id="raC">📅 Avvisi nel Calendario</button></div>`, sh => {
+    <div class="btns"><button class="btn ocra" id="raC">📅 Invia a Calendario iPhone</button></div>`, sh => {
     const delSel = all => { occs.forEach(o => { if (o._m && !all){ const m = master(o.id); m.skip = [...new Set([...(m.skip||[]), o._occ])]; } else S.items = S.items.filter(x => x.id !== (o._m||o.id)); }); U.sel.clear(); save(); toast('Eliminate'); render(); };
     sh.querySelector('#raD').onclick = () => {
       if (!anyRec) return confirmSheet(`Eliminare ${n} attività?`, () => delSel(true));
@@ -807,8 +808,8 @@ function renderSettings(){
 
     <h2 class="sec"><span>Avvisi</span></h2>
     <div class="setrow"><div class="grow"><b>Avvisi in-app (−1 h e −10 min)</b><small>Funzionano mentre TALboard è aperta · notifiche: ${perm}</small></div><button class="btn sm ${S.settings.inAppAlerts?'pri':''}" id="sAl">${S.settings.inAppAlerts?'ON':'OFF'}</button></div>
-    <div class="btns"><button class="btn" id="sPerm">Consenti notifiche</button><button class="btn ocra" id="sCalAll">📅 Tutte le future nel Calendario</button></div>
-    <div class="note">Per avvisi garantiti anche ad app chiusa usa "📅 Avvisi nel Calendario": crea l'evento nel Calendario dell'iPhone con due allarmi, 1 ora e 10 minuti prima.</div>
+    <div class="btns"><button class="btn" id="sPerm">Consenti notifiche</button><button class="btn ocra" id="sCalAll">📅 Invia tutte al Calendario</button></div>
+    <div class="note">Per avvisi garantiti anche ad app chiusa usa "📅 INVIA A CALENDARIO IPHONE": si apre Safari con l'evento pronto, tocchi "Aggiungi" e il Calendario ti avvisa 1 ora e 10 minuti prima della scadenza.</div>
 
     <h2 class="sec"><span>Privacy</span></h2>
     <div class="setrow"><div class="grow"><b>Blocco con PIN</b><small>${S.settings.pin?'Attivo':'Non attivo'}</small></div><button class="btn sm" id="sPin">${S.settings.pin?'Rimuovi':'Imposta'}</button></div>
@@ -873,10 +874,15 @@ function addToCalendar(items){
     return L.join('\r\n'); });
   if (!ev.length) return toast('Nessuna data da esportare');
   const ics = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//TALboard//IT','CALSCALE:GREGORIAN', ...ev, 'END:VCALENDAR'].join('\r\n');
-  const a = document.createElement('a');
-  a.href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(ics);
-  a.download = items.length === 1 ? (items[0].title.replace(/[^\p{L}\p{N}]+/gu,'_').slice(0,30) || 'evento') + '.ics' : 'TALboard-eventi.ics';
-  document.body.appendChild(a); a.click(); a.remove();
+  const b64 = btoa(String.fromCharCode(...new TextEncoder().encode(ics))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  const url = new URL('cal.html', location.href).href + '#' + b64;
+  const standalone = window.navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
+  toast('Apro il Calendario…');
+  if (standalone){
+    // dalla web app installata: apro Safari, che sa passare l'evento al Calendario
+    location.href = 'x-safari-' + url;
+    setTimeout(() => { if (!document.hidden) window.open(url, '_blank'); }, 1500);
+  } else location.href = url;
 }
 /* ---------- alerts (solo con app aperta) ---------- */
 async function notify(title, body){
