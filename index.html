@@ -256,7 +256,7 @@ input[type=range]{width:100%;accent-color:var(--ott2)}
 
 <script>
 /* ============ TALboard v1.0 — tutti i dati restano SOLO su questo dispositivo ============ */
-const VERSION = '1.4.2';
+const VERSION = '1.5';
 const KEY = 'talboard-data';
 const PALETTE = [
   {c:'#0E7C86',n:'Ottanio'},{c:'#7A1F35',n:'Bordeaux'},{c:'#C8962E',n:'Ocra'},{c:'#C77DFF',n:'Lilla'},
@@ -549,7 +549,9 @@ function openForm(o, preset){
     q('fSave').onclick = () => { const out = collect(); if (!out) return; commit(out);
       if (preset && preset._thought){ S.thoughts = S.thoughts.filter(t => t.id !== preset._thought); delete out._thought; save(); }
       closeSheet(); toast('Salvato ✓'); render(); };
-    q('fCal').onclick = () => { const out = collect(); if (!out) return; commit(out); addToCalendar([out]); };
+    q('fCal').onclick = () => { const out = collect(); if (!out) return; commit(out);
+      addToCalendar([out]);                                   // va chiamato subito, nel tocco
+      closeSheet(); U.view = 'agenda'; U.mode = 'day'; U.cur = parseDue(occKey ? occKey+'T00:00' : out.due); U.sel.clear(); window.scrollTo(0,0); render(); toast('Evento inviato al Calendario ✓'); };
     if (!isNew){
       q('fDel').onclick = () => {
         if (rec && occKey) openSheet(`<h3>Eliminare l'evento ricorrente?</h3><div class="btns"><button class="btn" id="dOne">Solo questa volta</button><button class="btn danger" id="dAll">Tutta la serie</button></div><div class="btns"><button class="btn" id="dNo">Annulla</button></div>`, s2 => {
@@ -877,12 +879,9 @@ function addToCalendar(items){
   const b64 = btoa(String.fromCharCode(...new TextEncoder().encode(ics))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
   const url = new URL('cal.html', location.href).href + '#' + b64;
   const standalone = window.navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
-  toast('Apro il Calendario…');
-  if (standalone){
-    // dalla web app installata: apro Safari, che sa passare l'evento al Calendario
-    location.href = 'x-safari-' + url;
-    setTimeout(() => { if (!document.hidden) window.open(url, '_blank'); }, 1500);
-  } else location.href = url;
+  // finestra che si apre sopra TALboard: mostra la scheda del Calendario e poi si richiude
+  const w = window.open(url, '_blank');
+  if (!w) location.href = standalone ? 'x-safari-' + url : url;
 }
 /* ---------- alerts (solo con app aperta) ---------- */
 async function notify(title, body){

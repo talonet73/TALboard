@@ -13,8 +13,9 @@ a.btn{display:block;width:100%;max-width:340px;padding:16px;border-radius:16px;f
 <div id="list"></div>
 <a class="btn pri" id="add" href="#">📅 Aggiungi al Calendario</a>
 <p>Se non si apre da solo, tocca il pulsante qui sopra e poi <b>Aggiungi</b>. Il Calendario ti avviserà 1 ora e 10 minuti prima della scadenza.</p>
-<a class="btn sec" id="alt" href="#">Non funziona? Prova il metodo 2</a>
-<div class="ev" style="text-align:center;border-color:rgba(200,150,46,.45);color:#E3B04B">✅ Fatto? Torna all'app toccando <b style="display:inline;font-size:15px">◀ TALboard</b> in alto a sinistra (accanto all'ora), oppure riapri TALboard <b style="display:inline;font-size:15px">dall'icona</b>.<br><span style="color:#9aa3ac;font-size:13px">Da Safari non si vedono i tuoi impegni: sono salvati solo dentro l'app.</span></div>
+<a class="btn sec" id="done" href="#">✓ Fatto · torna all'Agenda</a>
+<p id="hint" style="display:none">Se la pagina resta aperta tocca <b>Fine</b> (o la ✕) in alto per tornare a TALboard.</p>
+<a class="btn sec" id="alt" href="#" style="opacity:.7;font-size:15px;padding:12px">Non si apre? Metodo 2 (scarica il file)</a>
 <script>
 const b64 = location.hash.slice(1);
 let ics = '';
@@ -25,9 +26,19 @@ const evs = ics.split('BEGIN:VEVENT').slice(1).map(x => ({t: un((x.match(/SUMMAR
 document.getElementById('list').innerHTML = evs.map(e => `<div class="ev" style="margin-bottom:8px"><b>${e.t.replace(/</g,'&lt;')}</b>${e.s}${e.r?' · ↻ ricorrente':''}</div>`).join('') || '<p>Nessun evento ricevuto.</p>';
 const dataUrl = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(ics);
 // metodo 1: link data: (Safari lo passa al Calendario) · metodo 2: file .ics scaricato
-function m1(){ location.href = dataUrl; }
+let m1 = function(){ location.href = dataUrl; };
 function m2(){ const blob = new Blob([ics], {type:'text/calendar'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'TALboard.ics'; document.body.appendChild(a); a.click(); a.remove(); }
 document.getElementById('add').onclick = e => { e.preventDefault(); m1(); };
+// chiude la finestra e riporta a TALboard
+function back(){ try { window.close(); } catch(e){} setTimeout(() => { document.getElementById('hint').style.display = 'block'; }, 400); }
+document.getElementById('done').onclick = e => { e.preventDefault(); back(); };
+// quando la scheda del Calendario si chiude (Aggiungi o Annulla), torno da solo all'app
+let opened = false, away = false;
+const m1orig = m1; m1 = () => { opened = true; m1orig(); };
+const left = () => { if (opened) away = true; };
+const returned = () => { if (opened && away) setTimeout(back, 350); };
+window.addEventListener('blur', left); window.addEventListener('focus', returned);
+document.addEventListener('visibilitychange', () => document.hidden ? left() : returned());
 document.getElementById('alt').onclick = e => { e.preventDefault(); m2(); };
 if (ics) setTimeout(m1, 500);
 </script></body></html>
