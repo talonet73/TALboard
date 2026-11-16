@@ -256,7 +256,7 @@ input[type=range]{width:100%;accent-color:var(--ott2)}
 
 <script>
 /* ============ TALboard v1.0 — tutti i dati restano SOLO su questo dispositivo ============ */
-const VERSION = '1.4.1';
+const VERSION = '1.4.2';
 const KEY = 'talboard-data';
 const PALETTE = [
   {c:'#0E7C86',n:'Ottanio'},{c:'#7A1F35',n:'Bordeaux'},{c:'#C8962E',n:'Ocra'},{c:'#C77DFF',n:'Lilla'},
@@ -934,9 +934,11 @@ if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catc
   const otherBrowser = /CriOS|FxiOS|EdgiOS|OPiOS|GSA|Instagram|FBAN|FBAV/.test(ua);
   const b = $('#envBanner'); let msg = '';
   if (ios && otherBrowser) msg = '⚠️ <b>TALboard funziona bene solo con Safari.</b> Copia questo indirizzo, aprilo in Safari e poi tocca Condividi → <b>Aggiungi alla schermata Home</b>.';
+  else if (ios && !standalone && S.items.length === 0 && localStorage.getItem('talboard-seen-safari')) msg = '⚠️ <b>Sei in Safari, non nell\'app.</b> I tuoi impegni sono salvati dentro TALboard sulla schermata Home: chiudi Safari e apri TALboard <b>dall\'icona</b>.';
   else if (ios && !standalone) msg = '📲 Per usarla come app: tocca <b>Condividi</b> → <b>Aggiungi alla schermata Home</b> (lascia attivo "Apri come web app"), poi aprila sempre dall\'icona. Dati, notifiche e microfono funzionano bene solo così.';
   else if (!ios) msg = 'ℹ️ TALboard è pensata per <b>iPhone con Safari</b>, installata sulla schermata Home.';
   if (msg){ b.innerHTML = msg; b.classList.remove('hidden'); }
+  if (ios && !standalone) localStorage.setItem('talboard-seen-safari','1');
 })();
 lockScreen(); render(); checkAlerts();
 </script>
