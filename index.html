@@ -256,7 +256,7 @@ input[type=range]{width:100%;accent-color:var(--ott2)}
 
 <script>
 /* ============ TALboard v1.0 — tutti i dati restano SOLO su questo dispositivo ============ */
-const VERSION = '1.5';
+const VERSION = '1.6';
 const KEY = 'talboard-data';
 const PALETTE = [
   {c:'#0E7C86',n:'Ottanio'},{c:'#7A1F35',n:'Bordeaux'},{c:'#C8962E',n:'Ocra'},{c:'#C77DFF',n:'Lilla'},
@@ -280,7 +280,7 @@ try { S = JSON.parse(localStorage.getItem(KEY)) || seed(); } catch(e){ S = seed(
 const GREEN = '#22C55E';
 S.categories.forEach(c => { if (c.color === '#2F8F5B') c.color = '#C77DFF'; });
 S.recordings = S.recordings || []; S.alerted = S.alerted || {};
-S.settings = Object.assign({lastBackup:null,pin:null,inAppAlerts:true}, S.settings||{});
+S.settings = Object.assign({lastBackup:null,pin:null,inAppAlerts:true,calMode:'shortcut',scName:'TALboard Calendario'}, S.settings||{});
 const save = () => localStorage.setItem(KEY, JSON.stringify(S));
 save();
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
@@ -813,6 +813,10 @@ function renderSettings(){
     <div class="btns"><button class="btn" id="sPerm">Consenti notifiche</button><button class="btn ocra" id="sCalAll">📅 Invia tutte al Calendario</button></div>
     <div class="note">Per avvisi garantiti anche ad app chiusa usa "📅 INVIA A CALENDARIO IPHONE": si apre Safari con l'evento pronto, tocchi "Aggiungi" e il Calendario ti avvisa 1 ora e 10 minuti prima della scadenza.</div>
 
+    <h2 class="sec"><span>Invio al Calendario iPhone</span></h2>
+    <div class="setrow"><div class="grow"><b>Metodo</b><small>${S.settings.calMode==='shortcut'?'Comando Rapido (diretto, consigliato)':'Pagina Safari (.ics)'}</small></div><button class="btn sm" id="sCalMode">Cambia</button></div>
+    ${S.settings.calMode==='shortcut'?`<label class="f">Nome del Comando Rapido</label><input class="in" id="sScName" value="${esc(S.settings.scName)}" autocapitalize="none" autocorrect="off"><div class="note">Deve essere identico al nome del comando nell'app Comandi.</div>`:''}
+
     <h2 class="sec"><span>Privacy</span></h2>
     <div class="setrow"><div class="grow"><b>Blocco con PIN</b><small>${S.settings.pin?'Attivo':'Non attivo'}</small></div><button class="btn sm" id="sPin">${S.settings.pin?'Rimuovi':'Imposta'}</button></div>
     <div class="note">Tutto ciò che scrivi resta solo su questo iPhone. Su GitHub c'è solo il codice dell'app, nessun dato tuo. Nessun server, nessun account.</div>
@@ -827,6 +831,8 @@ function renderSettings(){
   $('#sAl').onclick = () => { S.settings.inAppAlerts = !S.settings.inAppAlerts; save(); render(); };
   $('#sPerm').onclick = async () => { if (!('Notification' in window)) return toast('Notifiche non disponibili: installa TALboard sulla schermata Home'); const p = await Notification.requestPermission(); toast('Notifiche: ' + p); render(); };
   $('#sCalAll').onclick = () => { const f = S.items.filter(x => { const d = parseDue(x.due); return (x.repeat && x.repeat!=='none') || (d && d > new Date() && !x.completed); }); if (!f.length) return toast('Nessuna scadenza futura'); addToCalendar(f); };
+  $('#sCalMode').onclick = () => { S.settings.calMode = S.settings.calMode === 'shortcut' ? 'ics' : 'shortcut'; save(); render(); };
+  const scn = $('#sScName'); if (scn) scn.onchange = () => { S.settings.scName = scn.value.trim() || 'TALboard Calendario'; save(); toast('Salvato'); };
   $('#sPin').onclick = () => S.settings.pin ? confirmSheet('Rimuovere il PIN?', () => { S.settings.pin = null; save(); render(); }) : setPin();
   $('#sWipe').onclick = () => confirmSheet('Cancellare TUTTO? Fai prima un backup.', () => confirmSheet('Sei sicuro? Non si torna indietro.', () => { S = seed(); save(); render(); toast('Dati cancellati'); }));
 }
@@ -858,7 +864,24 @@ S.settings = Object.assign({inAppAlerts:true}, S.settings||{}); save(); render()
 /* ---------- calendar (.ics con allarmi −60 e −10) ---------- */
 function icsEsc(s){ return String(s||'').replace(/\\/g,'\\\\').replace(/\n/g,'\\n').replace(/,/g,'\\,').replace(/;/g,'\\;'); }
 function icsDate(d){ return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`; }
+const isoLocal = d => { const o = -d.getTimezoneOffset(), sg = o >= 0 ? '+' : '-', a = Math.abs(o); return `${ymd(d)}T${hm(d)}:00${sg}${pad(Math.floor(a/60))}:${pad(a%60)}`; };
+function sendToShortcut(items){
+  const now = new Date();
+  const eventi = items.map(o => master(o.id) || o).map(it => {
+    // per un evento ricorrente invio la prossima occorrenza
+    const x = (it.repeat && it.repeat !== 'none') ? (occurrences(it, [now, addDays(now, 400)])[0] || it) : it;
+    const d = parseDue(x.due); if (!d) return null;
+    const st = x.from && x.to ? parseDue(x.from) : d, en = x.from && x.to ? parseDue(x.to) : new Date(d.getTime()+30*60000);
+    const c = cat(x.catId);
+    return { titolo: x.title, inizio: isoLocal(st), fine: isoLocal(en), scadenza: isoLocal(d),
+      avviso60: isoLocal(new Date(d.getTime()-60*60000)), avviso10: isoLocal(new Date(d.getTime()-10*60000)),
+      note: [x.desc, x.notes, 'Categoria: '+c.name, (x.tags||[]).map(t=>'#'+t).join(' ')].filter(Boolean).join('\n') };
+  }).filter(Boolean);
+  if (!eventi.length) return toast('Nessuna data da inviare');
+  location.href = 'shortcuts://run-shortcut?name=' + encodeURIComponent(S.settings.scName || 'TALboard Calendario') + '&input=text&text=' + encodeURIComponent(JSON.stringify({eventi}));
+}
 function addToCalendar(items){
+  if (S.settings.calMode === 'shortcut') return sendToShortcut(items);
   const st = new Date().toISOString().replace(/[-:]/g,'').split('.')[0]+'Z';
   const FREQ = {daily:'DAILY', weekly:'WEEKLY', monthly:'MONTHLY', yearly:'YEARLY'};
   const trig = m => m < 0 ? `-PT${-m}M` : `PT${m}M`;
