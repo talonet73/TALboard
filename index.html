@@ -256,7 +256,7 @@ input[type=range]{width:100%;accent-color:var(--ott2)}
 
 <script>
 /* ============ TALboard v1.0 — tutti i dati restano SOLO su questo dispositivo ============ */
-const VERSION = '1.6.2';
+const VERSION = '1.6.3';
 const KEY = 'talboard-data';
 const PALETTE = [
   {c:'#0E7C86',n:'Ottanio'},{c:'#7A1F35',n:'Bordeaux'},{c:'#C8962E',n:'Ocra'},{c:'#C77DFF',n:'Lilla'},
@@ -916,15 +916,18 @@ function labSend(m, ics, b64){
   if (m === 'B') return window.open(base + '?m=blob#' + b64, '_blank');
   if (m === 'C') return location.href = URL.createObjectURL(new Blob([ics], {type:'text/calendar'}));
   if (m === 'D'){ const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([ics], {type:'text/calendar'})); a.download = 'TEST-D.ics'; document.body.appendChild(a); a.click(); a.remove(); return; }
-  if (m === 'E') return location.href = 'x-safari-' + base + '?m=data#' + b64;
+  if (m === 'E') return location.href = 'x-safari-' + base + '#' + b64;
+  const ev = new URL('event.ics?d=' + b64, location.href).href;
+  if (m === 'F') return location.href = ev;            // file .ics dentro l'app
+  if (m === 'G') return window.open(ev, '_blank');     // file .ics in finestra sopra l'app
 }
 function openLab(){
   const t = addDays(new Date(), 1); t.setHours(12,0,0,0);
   const mk = k => ({id:'lab'+k, title:'TEST-'+k+' TALboard', due: ymd(t)+'T'+hm(t), catId:(S.categories[0]||{}).id, tags:[], desc:'Evento di prova metodo '+k});
   openSheet(`<h3>🧪 Test Calendario (una volta sola)</h3>
-    <div class="note">Tocca i 4 pulsanti uno alla volta. Ognuno prova a creare nel Calendario un evento <b>"TEST-B/C/D/E TALboard"</b> per domani alle 12:00. Se compare la schermata del Calendario tocca <b>Aggiungi</b>; poi torna qui (con Fine, ✕ o ◀ TALboard in alto a sinistra). Alla fine apri il Calendario e dimmi quali TEST ci sono.</div>
-    ${['B','C','D','E'].map(k => `<div class="btns"><button class="btn ${k==='E'?'':'pri'}" data-lab="${k}">Prova ${k}</button></div>`).join('')}
-    <div class="note">B = finestra sopra l'app · C e D = file dentro l'app · E = Safari</div>`, sh => {
+    <div class="note">Tocca i 4 pulsanti uno alla volta. Ognuno prova a creare nel Calendario un evento <b>"TEST-… TALboard"</b> per domani alle 12:00. Se compare la schermata del Calendario tocca <b>Aggiungi</b>; poi torna qui (con Fine, ✕ o ◀ TALboard in alto a sinistra). Alla fine apri il Calendario e dimmi quali TEST ci sono.</div>
+    ${['F','G','E','B','C','D'].map(k => `<div class="btns"><button class="btn ${k==='E'?'':'pri'}" data-lab="${k}">Prova ${k}</button></div>`).join('')}
+    <div class="note">F e G = dentro l'app (il risultato migliore) · E = Safari · B, C, D = altri metodi. Se una prova ti blocca su una pagina senza uscita, chiudi TALboard dal multitasking e riaprila.</div>`, sh => {
     sh.querySelectorAll('[data-lab]').forEach(b => b.onclick = () => addToCalendar([mk(b.dataset.lab)], b.dataset.lab));
   });
 }
