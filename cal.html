@@ -13,6 +13,7 @@ a.btn{display:block;width:100%;max-width:340px;padding:16px;border-radius:16px;f
 <div id="list"></div>
 <a class="btn pri" id="add" href="#">📅 Aggiungi al Calendario</a>
 <p>Se non si apre da solo, tocca il pulsante qui sopra e poi <b>Aggiungi</b>. Il Calendario ti avviserà 1 ora e 10 minuti prima della scadenza.</p>
+<a class="btn sec" id="alt" href="#">Non funziona? Prova il metodo 2</a>
 <a class="btn sec" href="./">← Torna a TALboard</a>
 <script>
 const b64 = location.hash.slice(1);
@@ -22,16 +23,11 @@ const un = v => v.replace(/\\n/g,'\n').replace(/\\([,;\\])/g,'$1');
 const fmt = v => { const m = v.match(/(\d{4})(\d\d)(\d\d)T(\d\d)(\d\d)/); return m ? `${m[3]}/${m[2]}/${m[1]} ${m[4]}:${m[5]}` : v; };
 const evs = ics.split('BEGIN:VEVENT').slice(1).map(x => ({t: un((x.match(/SUMMARY:(.*)/)||[])[1]||''), s: fmt((x.match(/DTSTART:(.*)/)||[])[1]||''), r: /RRULE/.test(x)}));
 document.getElementById('list').innerHTML = evs.map(e => `<div class="ev" style="margin-bottom:8px"><b>${e.t.replace(/</g,'&lt;')}</b>${e.s}${e.r?' · ↻ ricorrente':''}</div>`).join('') || '<p>Nessun evento ricevuto.</p>';
-const icsUrl = 'event.ics?d=' + b64;                                   // servito dal service worker come vero file .ics
 const dataUrl = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(ics);
-const add = document.getElementById('add');
-function go(){ location.href = navigator.serviceWorker && navigator.serviceWorker.controller ? icsUrl : dataUrl; }
-add.onclick = e => { e.preventDefault(); go(); };
-if (ics){
-  if ('serviceWorker' in navigator){
-    navigator.serviceWorker.register('sw.js').catch(()=>{});
-    if (navigator.serviceWorker.controller) setTimeout(go, 400);
-    else { let done = false; navigator.serviceWorker.addEventListener('controllerchange', () => { if (!done){ done = true; go(); } }); setTimeout(() => { if (!done){ done = true; go(); } }, 2500); }
-  } else setTimeout(go, 400);
-}
+// metodo 1: link data: (Safari lo passa al Calendario) · metodo 2: file .ics scaricato
+function m1(){ location.href = dataUrl; }
+function m2(){ const blob = new Blob([ics], {type:'text/calendar'}); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'TALboard.ics'; document.body.appendChild(a); a.click(); a.remove(); }
+document.getElementById('add').onclick = e => { e.preventDefault(); m1(); };
+document.getElementById('alt').onclick = e => { e.preventDefault(); m2(); };
+if (ics) setTimeout(m1, 500);
 </script></body></html>
