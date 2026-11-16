@@ -256,7 +256,7 @@ input[type=range]{width:100%;accent-color:var(--ott2)}
 
 <script>
 /* ============ TALboard v1.0 — tutti i dati restano SOLO su questo dispositivo ============ */
-const VERSION = '1.6.3';
+const VERSION = '1.6.4';
 const KEY = 'talboard-data';
 const PALETTE = [
   {c:'#0E7C86',n:'Ottanio'},{c:'#7A1F35',n:'Bordeaux'},{c:'#C8962E',n:'Ocra'},{c:'#C77DFF',n:'Lilla'},
@@ -824,6 +824,9 @@ function renderSettings(){
     <div class="setrow"><div class="grow"><b>Blocco con PIN</b><small>${S.settings.pin?'Attivo':'Non attivo'}</small></div><button class="btn sm" id="sPin">${S.settings.pin?'Rimuovi':'Imposta'}</button></div>
     <div class="note">Tutto ciò che scrivi resta solo su questo iPhone. Su GitHub c'è solo il codice dell'app, nessun dato tuo. Nessun server, nessun account.</div>
 
+    <h2 class="sec"><span>Aggiornamenti</span></h2>
+    <div class="setrow"><div class="grow"><b>Versione installata: v${VERSION}</b><small id="sVerOnline">Controllo versione online…</small></div><button class="btn sm pri" id="sUpd">Aggiorna ora</button></div>
+
     <h2 class="sec"><span>Zona pericolosa</span></h2>
     <div class="btns"><button class="btn danger" id="sWipe">Cancella tutti i dati</button></div>
     <div class="note" style="text-align:center;margin-top:20px">TALboard v${VERSION} · ${S.items.length} attività · ${S.thoughts.length} pensieri</div>`;
@@ -835,6 +838,10 @@ function renderSettings(){
   $('#sPerm').onclick = async () => { if (!('Notification' in window)) return toast('Notifiche non disponibili: installa TALboard sulla schermata Home'); const p = await Notification.requestPermission(); toast('Notifiche: ' + p); render(); };
   $('#sCalAll').onclick = () => { const f = S.items.filter(x => { const d = parseDue(x.due); return (x.repeat && x.repeat!=='none') || (d && d > new Date() && !x.completed); }); if (!f.length) return toast('Nessuna scadenza futura'); addToCalendar(f); };
   $('#sLab').onclick = openLab;
+  fetch('index.html?v=' + Date.now(), {cache:'no-store'}).then(r => r.text()).then(t => { const m = t.match(/const VERSION = '([^']+)'/); const el = $('#sVerOnline'); if (el && m) el.textContent = m[1] === VERSION ? 'È l\'ultima versione ✓' : 'Disponibile v' + m[1] + ' → tocca Aggiorna ora'; }).catch(() => { const el = $('#sVerOnline'); if (el) el.textContent = 'Offline'; });
+  $('#sUpd').onclick = async () => { toast('Aggiorno…');
+    try { const regs = await navigator.serviceWorker?.getRegistrations() || []; for (const r of regs) await r.update(); const ks = await caches.keys(); await Promise.all(ks.map(k => caches.delete(k))); } catch(e){}
+    location.replace('./?v=' + Date.now()); };
   $('#sCalMode').onclick = () => { S.settings.calMode = S.settings.calMode === 'shortcut' ? 'ics' : 'shortcut'; S.settings.scConfirmed = S.settings.calMode === 'shortcut'; save(); render(); };
   const scn = $('#sScName'); if (scn) scn.onchange = () => { S.settings.scName = scn.value.trim() || 'TALboard Calendario'; save(); toast('Salvato'); };
   $('#sPin').onclick = () => S.settings.pin ? confirmSheet('Rimuovere il PIN?', () => { S.settings.pin = null; save(); render(); }) : setPin();
